@@ -1,3 +1,0 @@
-# visbrain-mne
-
-coucou
