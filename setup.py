@@ -46,6 +46,8 @@ setup(
     install_requires=[
         "numpy>=1.13",
         "vispy>=0.5.2",
+        "nibabel",
+        "matplotlib"
     ],
     dependency_links=[],
     classifiers=["Development Status :: 3 - Alpha",
