@@ -3,18 +3,6 @@
 This class can be used to create a 3D object, based on vertices and faces. It
 can be used to create the main brain or areas (like brodmann / gyrus). This
 class is also responsible of turning camera rotations into light ajustement.
-
-This class inherit from vispy.visuals so it can be turned into a vispy node,
-which make it easier to add vispy transformations.
-
-Authors: Etienne Combrisson <e.combrisson@gmail.com>
-
-Textures
---------
-1D texture : white (0) + sulcus (.5) + mask (1.)
-2D texture : overlays (limited to 4 overlays)
-
-License: BSD (3-clause)
 """
 import numpy as np
 import logging
