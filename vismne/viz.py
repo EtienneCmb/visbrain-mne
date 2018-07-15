@@ -1,36 +1,42 @@
 """Need doc."""
-from .io import _get_subjects_dir
-from .utils import Surface, _check_units
+import os
+
+import numpy as np
+
+from vispy import scene
+
+from .io import _get_subjects_dir, read_scalar_data
+from .utils import Surface, _check_units, string_types
 from .visuals import BrainMesh
 
 
-lh_viewdict = {'lateral': {'v': (180., 90.), 'r': 90.},
-               'medial': {'v': (0., 90.), 'r': -90.},
-               'rostral': {'v': (90., 90.), 'r': -180.},
-               'caudal': {'v': (270., 90.), 'r': 0.},
-               'dorsal': {'v': (180., 0.), 'r': 90.},
-               'ventral': {'v': (180., 180.), 'r': 90.},
-               'frontal': {'v': (120., 80.), 'r': 106.739},
-               'parietal': {'v': (-120., 60.), 'r': 49.106}}
-rh_viewdict = {'lateral': {'v': (180., -90.), 'r': -90.},
-               'medial': {'v': (0., -90.), 'r': 90.},
-               'rostral': {'v': (-90., -90.), 'r': 180.},
-               'caudal': {'v': (90., -90.), 'r': 0.},
-               'dorsal': {'v': (180., 0.), 'r': 90.},
-               'ventral': {'v': (180., 180.), 'r': 90.},
-               'frontal': {'v': (60., 80.), 'r': -106.739},
-               'parietal': {'v': (-60., 60.), 'r': -49.106}}
+lh_viewdict = {'lateral': {'v': (-90., 0.), 'r': 90., 'xyz': [1, 2]},
+               'medial': {'v': (90., 0.), 'r': -90., 'xyz': [1, 2]},
+               'rostral': {'v': (180., 0.), 'r': -180., 'xyz': [0, 2]},
+               'caudal': {'v': (0., 0.), 'r': 0., 'xyz': [0, 2]},
+               'dorsal': {'v': (0., 90.), 'r': 90., 'xyz': [0, 1]},
+               'ventral': {'v': (0., -90.), 'r': 90., 'xyz': [0, 1]},
+               'frontal': {'v': (120., 80.), 'r': 106.739, 'xyz': [0, 1]},
+               'parietal': {'v': (-120., 60.), 'r': 49.106, 'xyz': [0, 1]}}
+rh_viewdict = {'lateral': {'v': (90., 0.), 'r': -90., 'xyz': [1, 2]},
+               'medial': {'v': (-90., 0.), 'r': 90., 'xyz': [1, 2]},
+               'rostral': {'v': (180., 0.), 'r': 180., 'xyz': [0, 2]},
+               'caudal': {'v': (0., 0.), 'r': 0., 'xyz': [0, 2]},
+               'dorsal': {'v': (0., 90.), 'r': 90., 'xyz': [0, 1]},
+               'ventral': {'v': (0., -90.), 'r': 90., 'xyz': [0, 1]},
+               'frontal': {'v': (60., 80.), 'r': -106.739, 'xyz': [0, 1]},
+               'parietal': {'v': (-60., 60.), 'r': -49.106, 'xyz': [0, 1]}}
 viewdicts = dict(lh=lh_viewdict, rh=rh_viewdict)
 
 
 class Brain(object):
     """docstring for Brain."""
 
-    def __init__(self, subject_id, hemi, surf, title=None, views=['lat'],
-                 offset=True):
+    def __init__(self, subject_id, hemi, surf, title=None, views=['lateral'],
+                 offset=True, subjects_dir=None, units='mm', size=800,
+                 foreground="white", background="black",):
         self._units = _check_units(units)
         col_dict = dict(lh=1, rh=1, both=1, split=2)
-        n_col = col_dict[hemi]
         if hemi not in col_dict.keys():
             raise ValueError('hemi must be one of [%s], not %s'
                              % (', '.join(col_dict.keys()), hemi))
@@ -44,9 +50,8 @@ class Brain(object):
 
         if not isinstance(views, list):
             views = [views]
-        n_row = len(views)
 
-        # load geometry for one or both hemispheres as necessary
+        # _______________________ GEOMETRY _______________________
         offset = None if (not offset or hemi != 'both') else 0.0
         self.geo = dict()
         if hemi in ['split', 'both']:
@@ -64,15 +69,181 @@ class Brain(object):
                           units=self._units)
             # Load in the geometry and (maybe) curvature
             geo.load_geometry()
-            if geo_curv:
+            if True:  #geo_curv:
                 geo.load_curvature()
             self.geo[h] = geo
 
+        # _______________________ PARENT _______________________
+        # Deal with making figures
+        self._set_window_properties(size, background, foreground)
+        del background, foreground
+        # Camera, canvas and grid : :
+        self._sc = scene.SceneCanvas(bgcolor=self._bg_color, show=True,
+                                     size=self._scene_size)
+        camera = scene.cameras.TurntableCamera()
+        self._grid = self._sc.central_widget.add_grid(margin=10)
+        self._parents = dict()
+
+        # _______________________ BRAINS _______________________
+        # fill figures with brains
+        brains = []
+        for ri, view in enumerate(views):
+            for hi, h in enumerate(['lh', 'rh']):
+                if not (hemi in ['lh', 'rh'] and h != hemi):
+                    ci = hi if hemi == 'split' else 0
+                    # Switch if the subplot exist :
+                    sub_exist = (ri, ci) in self._parents.keys()
+                    if not sub_exist:
+                        camera = scene.cameras.TurntableCamera()
+                        parent = self._grid.add_view(row=ri, col=ci,
+                                                     camera=camera)
+                        kwrci = dict(parent=parent, camera=camera)
+                        self._parents[(ri, ci)] = kwrci
+                        parent.camera = camera
+                    else:
+                        parent = self._parents[(ri, ci)]['parent']
+                        camera = self._parents[(ri, ci)]['camera']
+                    # Mesh creation :
+                    geo = self.geo[h]
+                    brain = BrainMesh(vertices=geo.coords, faces=geo.faces,
+                                      normals=geo.nn, sulcus=geo.bin_curv,
+                                      parent=parent.scene, camera=camera)
+                    brains += [dict(row=ri, col=ci, brain=brain, hemi=h)]
+                    # If 'both', center must be the mean of lh and rh :
+                    cam_state = dict(center=brain._cam_center)
+                    if sub_exist:
+                        center = (camera.center + brain._cam_center) / 2.
+                        cam_state['center'] = center
+                    brain.show_view(viewdicts[h][view], self._scene_size,
+                                    cam_state)
+        self.brains = brains
+
+    def _set_window_properties(self, size, background, foreground):
+        """Set window properties that are used elsewhere."""
+        # old option "size" sets both width and height
+        from matplotlib.colors import colorConverter
+        try:
+            width, height = size
+        except (TypeError, ValueError):
+            width, height = size, size
+        self._scene_size = height, width
+        self._bg_color = colorConverter.to_rgb(background)
+        if foreground is None:
+            foreground = 'w' if sum(self._bg_color) < 2 else 'k'
+        self._fg_color = colorConverter.to_rgb(foreground)
+
+    def _check_hemi(self, hemi):
+        """Check for safe single-hemi input, returns str."""
+        if hemi is None:
+            if self._hemi not in ['lh', 'rh']:
+                raise ValueError('hemi must not be None when both '
+                                 'hemispheres are displayed')
+            else:
+                hemi = self._hemi
+        elif hemi not in ['lh', 'rh']:
+            extra = ' or None' if self._hemi in ['lh', 'rh'] else ''
+            raise ValueError('hemi must be either "lh" or "rh"' + extra)
+        return hemi
+
+    def _read_scalar_data(self, source, hemi, name=None):
+        """Load in scalar data from an image stored in a file or an array.
+
+        Parameters
+        ----------
+        source : str or numpy array
+            path to scalar data file or a numpy array
+        name : str or None, optional
+            name for the overlay in the internal dictionary
+
+        Returns
+        -------
+        scalar_data : numpy array
+            flat numpy array of scalar data
+        name : str
+            if no name was provided, deduces the name if filename was given
+            as a source
+        """
+        # If source is a string, try to load a file
+        if isinstance(source, string_types):
+            if name is None:
+                basename = os.path.basename(source)
+                if basename.endswith(".gz"):
+                    basename = basename[:-3]
+                if basename.startswith("%s." % hemi):
+                    basename = basename[3:]
+                name = os.path.splitext(basename)[0]
+            scalar_data = read_scalar_data(source)
+        else:
+            # Can't think of a good way to check that this will work nicely
+            scalar_data = source
+
+        return scalar_data, name
+
+    def _get_display_range(self, scalar_data, min, max, sign):
+        if scalar_data.min() >= 0:
+            sign = "pos"
+        elif scalar_data.max() <= 0:
+            sign = "neg"
+
+        # Get data with a range that will make sense for automatic thresholding
+        if sign == "neg":
+            range_data = np.abs(scalar_data[np.where(scalar_data < 0)])
+        elif sign == "pos":
+            range_data = scalar_data[np.where(scalar_data > 0)]
+        else:
+            range_data = np.abs(scalar_data)
+
+        # Get a numeric value for the scalar minimum
+        if min is None:
+            min = "robust_min"
+        if min == "robust_min":
+            min = np.percentile(range_data, 2)
+        elif min == "actual_min":
+            min = range_data.min()
+
+        # Get a numeric value for the scalar maximum
+        if max is None:
+            max = "robust_max"
+        if max == "robust_max":
+            max = np.percentile(scalar_data, 98)
+        elif max == "actual_max":
+            max = range_data.max()
+
+        return min, max
+
     ###########################################################################
     # ADDING DATA PLOTS
-    def add_overlay(self):
-        """Doc."""
-        raise NotImplementedError
+    def add_overlay(self, source, min=2, max="robust_max", sign="abs",
+                    name=None, hemi=None):
+        """Add an overlay to the overlay dict from a file or array.
+
+        Parameters
+        ----------
+        source : str or numpy array
+            path to the overlay file or numpy array with data
+        min : float
+            threshold for overlay display
+        max : float
+            saturation point for overlay display
+        sign : {'abs' | 'pos' | 'neg'}
+            whether positive, negative, or both values should be displayed
+        name : str
+            name for the overlay in the internal dictionary
+        hemi : str | None
+            If None, it is assumed to belong to the hemipshere being
+            shown. If two hemispheres are being shown, an error will
+            be thrown.
+        """
+        hemi = self._check_hemi(hemi)
+        # load data here
+        scalar_data, name = self._read_scalar_data(source, hemi, name=name)
+        min, max = self._get_display_range(scalar_data, min, max, sign)
+        if sign not in ["abs", "pos", "neg"]:
+            raise ValueError("Overlay sign must be 'abs', 'pos', or 'neg'")
+        old = OverlayData(scalar_data, min, max, sign)
+        for brain in self.brains:
+            if brain['hemi'] == hemi:
+                brain['brain'].add_overlay(scalar_data.copy(), clim=(5., 20.))
 
     def add_data(self):
         """Doc."""
@@ -166,6 +337,11 @@ class Brain(object):
         """Doc."""
         raise NotImplementedError
 
+    def show(self):
+        """Display the figure."""
+        from vispy import app
+        app.run()
+
     ###########################################################################
     # SAVING
     def save_single_image(self):
@@ -203,3 +379,37 @@ class Brain(object):
     def animate(self):
         """Doc."""
         raise NotImplementedError
+
+
+class OverlayData(object):
+    """Encapsulation of statistical neuroimaging overlay viz data."""
+
+    def __init__(self, scalar_data, min, max, sign):
+        if scalar_data.min() >= 0:
+            sign = "pos"
+        elif scalar_data.max() <= 0:
+            sign = "neg"
+
+        if sign in ["abs", "pos"]:
+            # Figure out the correct threshold to avoid TraitErrors
+            # This seems like not the cleanest way to do this
+            pos_max = np.max((0.0, np.max(scalar_data)))
+            if pos_max < min:
+                thresh_low = pos_max
+            else:
+                thresh_low = min
+            self.pos_lims = [thresh_low, min, max]
+        else:
+            self.pos_lims = None
+
+        if sign in ["abs", "neg"]:
+            # Figure out the correct threshold to avoid TraitErrors
+            # This seems even less clean due to negative convolutedness
+            neg_min = np.min((0.0, np.min(scalar_data)))
+            if neg_min > -min:
+                thresh_up = neg_min
+            else:
+                thresh_up = -min
+            self.neg_lims = [thresh_up, -max, -min]
+        else:
+            self.neg_lims = None

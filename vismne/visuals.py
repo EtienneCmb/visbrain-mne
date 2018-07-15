@@ -241,17 +241,14 @@ class BrainVisual(Visual):
 
         # Find ratio for the camera :
         v_max, v_min = vertices.max(0), vertices.min(0)
-        cam_center = (v_max + v_min).astype(float) / 2.
-        cam_scale_factor = (v_max - v_min).astype(float)
-        self._opt_cam_state = dict(center=cam_center,
-                                   scale_factor=cam_scale_factor)
-        logger.debug("Optimal camera state : %r" % self._opt_cam_state)
+        self._cam_center = (v_max + v_min).astype(float) / 2.
+        self._lim_xyz = (v_max - v_min).astype(float)
 
         # ____________________ BUFFERS ____________________
         # Vertices // faces // normals :
         self._vert_buffer.set_data(vertices, convert=True)
         self._normals_buffer.set_data(normals, convert=True)
-        self._index_buffer.set_data(self._faces)
+        self._index_buffer.set_data(self._faces, convert=True)
         # Sulcus :
         n = len(self)
         sulcus = np.zeros((n,), dtype=bool) if sulcus is None else sulcus
@@ -392,6 +389,23 @@ class BrainVisual(Visual):
             self._camera = camera
             self._camera_transform = self._camera.transform
             self.update()
+
+    def show_view(self, view, csize, cam_state=None, margin=1.08, distance=4.):
+        """"""
+        if not isinstance(cam_state, dict):
+            cam_state = dict()
+        cam_state['azimuth'], cam_state['elevation'] = view['v']
+        cam_state['roll'] = view['r']
+        # Scale factor :
+        axis_scale = self._lim_xyz[view['xyz']]
+        x_ratio = axis_scale[0] / csize[0]
+        y_ratio = axis_scale[1] / csize[1]
+        # Get the optimal scaling factor :
+        scale_factor = axis_scale[np.argmax([x_ratio, y_ratio])] * margin
+        cam_state['scale_factor'] = scale_factor
+        self._camera.set_state(**cam_state)
+        self._camera.distance = cam_state['scale_factor'] * distance
+        self._camera.set_default_state()
 
     def clean(self):
         """Clean the mesh.

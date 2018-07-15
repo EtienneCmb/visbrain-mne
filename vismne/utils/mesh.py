@@ -77,13 +77,13 @@ class Surface(object):
         nn = _compute_normals(coords, faces)
 
         if self.coords is None:
-            self.coords = coords
-            self.faces = faces
-            self.nn = nn
+            self.coords = coords.astype(np.float32)
+            self.faces = faces.astype(np.uint32)
+            self.nn = nn.astype(np.float32)
         else:
-            self.coords[:] = coords
-            self.faces[:] = faces
-            self.nn[:] = nn
+            self.coords[:] = coords.astype(np.float32)
+            self.faces[:] = faces.astype(np.uint32)
+            self.nn[:] = nn.astype(np.float32)
 
     @property
     def x(self):
@@ -104,7 +104,7 @@ class Surface(object):
         """Load in curvature values from the ?h.curv file."""
         curv_path = op.join(self.data_path, "surf", "%s.curv" % self.hemi)
         self.curv = nib.freesurfer.read_morph_data(curv_path)
-        self.bin_curv = np.array(self.curv > 0, np.int)
+        self.bin_curv = self.curv > 0
 
     def load_label(self, name):
         """Load in a Freesurfer .label file.
