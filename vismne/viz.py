@@ -80,7 +80,6 @@ class Brain(object):
         # Camera, canvas and grid : :
         self._sc = scene.SceneCanvas(bgcolor=self._bg_color, show=True,
                                      size=self._scene_size)
-        camera = scene.cameras.TurntableCamera()
         self._grid = self._sc.central_widget.add_grid(margin=10)
         self._parents = dict()
 
