@@ -6,6 +6,10 @@ The most straightforward way to plot activations is when you already have a map
 of them defined on the Freesurfer surface. This map can be stored in any file
 format that Nibabel can understand.
 """
+# Author: Etienne Combrisson <e.combrisson@gmail.com>
+#
+# License: BSD (3-clause)
+
 import os
 
 from vismne import Brain
@@ -16,21 +20,16 @@ print(__doc__)
 data_path = sample.data_path()
 subjects_dir = os.path.join(data_path, 'subjects')
 
-"""
-Bring up the visualization window.
-"""
+# Bring up the visualization window.
 views = ['lateral', 'ventral', 'dorsal']
-brain = Brain("fsaverage", "split", "inflated", subjects_dir=subjects_dir, views=views)
+brain = Brain("fsaverage", "split", "inflated",
+              subjects_dir=subjects_dir, views=views)
 
-"""
-Get a path to the overlay file.
-"""
-overlay_file = "/home/etienne/Toolbox/PySurfer/examples/example_data/lh.sig.nii.gz"
+# Get a path to the overlay file.
+overlay_file = "./lh.sig.nii.gz"
 
-"""
-Display the overlay on the surface using the defaults to control thresholding
-and colorbar saturation.  These can be set through your config file.
-"""
+# Display the overlay on the surface using the defaults to control thresholding
+# and colorbar saturation.  These can be set through your config file.
 brain.add_overlay(overlay_file, hemi='lh')
 brain.show()
 0/0
