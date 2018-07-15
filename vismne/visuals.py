@@ -22,7 +22,6 @@ LUT_LEN = 1024
 LIGHT_POSITION = [100.] * 3
 LIGHT_INTENSITY = [1.] * 3
 COEF_AMBIENT = .05
-COEF_SPECULAR = .5
 SULCUS_COLOR = [.4] * 3 + [1.]
 
 # Vertex shader : executed code for individual vertices. The transformation
@@ -95,16 +94,9 @@ void main() {
     // Get diffuse light :
     vec3 diffuseLight =  v_color.rgb * brightness * $u_light_intensity;
 
-    // ----------------- Specular light -----------------
-    vec3 surfaceToCamera = vec3(0.0, 0.0, 1.0) - v_position;
-    vec3 K = normalize(normalize(surfaceToLight) + normalize(surfaceToCamera));
-    float specular = clamp(pow(abs(dot(v_normal, K)), 40.), 0.0, 1.0);
-    specular *= $u_coef_specular;
-    vec3 specularLight = specular * vec3(1., 1., 1.) * $u_light_intensity;
-
     // ----------------- Linear color -----------------
     // Without attenuation :
-    vec3 linearColor = ambientLight + specularLight + diffuseLight;
+    vec3 linearColor = ambientLight + diffuseLight;
 
     // ----------------- Final color -----------------
     // Without gamma correction :
@@ -191,7 +183,6 @@ class BrainVisual(Visual):
         # _________________ LIGHTS _________________
         self.shared_program.frag['u_light_intensity'] = LIGHT_INTENSITY
         self.shared_program.frag['u_coef_ambient'] = COEF_AMBIENT
-        self.shared_program.frag['u_coef_specular'] = COEF_SPECULAR
 
         # _________________ DATA / CAMERA / LIGHT _________________
         self.set_data(vertices, faces, normals, sulcus)
