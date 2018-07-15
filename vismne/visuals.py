@@ -382,7 +382,21 @@ class BrainVisual(Visual):
             self.update()
 
     def show_view(self, view, csize, cam_state=None, margin=1.08, distance=4.):
-        """"""
+        """Show a view of the brain.
+
+        Parameters
+        ----------
+        view : dict
+            Dict containing azimuth, elevation and roll.
+        csize : tuple
+            Canvas size.
+        cam_state : dict | None
+            Camera state dict.
+        margin : float | 1.08
+            Margin coefficient.
+        distance : float | 4.
+            Light distance coefficient.
+        """
         if not isinstance(cam_state, dict):
             cam_state = dict()
         cam_state['azimuth'], cam_state['elevation'] = view['v']
