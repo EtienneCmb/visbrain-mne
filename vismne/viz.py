@@ -298,7 +298,7 @@ class Brain(object):
         limits = clim
         if isinstance(clim, list):
             limits = (self.neg_lims[1], self.pos_lims[2])
-        cbar = Colormap(cmap=cmap).vispy
+        cbar = Colormap(cmap=cmap)
 
         return colormap, cbar, limits
 
@@ -309,7 +309,7 @@ class Brain(object):
         Parameters
         ----------
         colormap : vispy.color.Colormap
-            VisPy colormap instance.
+            Visbrain-mne colormap instance.
         clim : tuple | None
             Colorbar limits.
         size : tuple | (60, 4)
@@ -321,25 +321,32 @@ class Brain(object):
         title : string | None
             Colorbar title.
         """
-        # Create the rectangular camera :
-        w, h = size
-        rect = [-3 * w / 2, -h, w * 3, 5 * h]
-        camera = scene.cameras.PanZoomCamera(rect=rect)
-        # Create the subplot :
-        r = 1 if self._hemi in ['lh', 'rh'] else 2
-        parent = self._grid.add_view(row=self._n_rows, col=0, row_span=r,
-                                     camera=camera)
-        parent.height_max = height_max
+        assert isinstance(colormap, Colormap)
         # Create the colorbar :
-        self._cbar = scene.ColorBar(colormap, orientation, size, clim=clim,
-                                    label_str=title, parent=parent.scene,
-                                    label_color=self._fg_color)
+        if not hasattr(self, '_cbar'):
+            # Create the rectangular camera :
+            w, h = size
+            rect = [-3 * w / 2, -h, w * 3, 5 * h]
+            camera = scene.cameras.PanZoomCamera(rect=rect)
+            # Create the subplot :
+            r = 1 if self._hemi in ['lh', 'rh'] else 2
+            parent = self._grid.add_view(row=self._n_rows, col=0, col_span=r,
+                                         camera=camera)
+            parent.height_max = height_max
+            self._cbar = scene.ColorBar(colormap.vispy, orientation, size,
+                                        clim=clim, label_str=title,
+                                        parent=parent.scene,
+                                        label_color=self._fg_color)
+        else:
+            self._cbar.cmap = colormap.vispy
+            self._cbar.clim = colormap['clim']
+        self._cbar.update()
+        self._cbar_is_displayed = True
 
     ###########################################################################
     # ADDING DATA PLOTS
     def add_overlay(self, source, min=2, max="robust_max", sign="abs",
-                    name=None, hemi=None, add_colorbar=True,
-                    colorbar_title=None):
+                    name=None, hemi=None, colorbar=True, colorbar_title=None):
         """Add an overlay to the overlay dict from a file or array.
 
         Parameters
