@@ -116,7 +116,7 @@ class Brain(object):
         self._set_window_properties(size, background, foreground)
         del background, foreground
         # Camera, canvas and grid : :
-        self._sc = scene.SceneCanvas(bgcolor=self._bg_color, show=True,
+        self._sc = scene.SceneCanvas(bgcolor=self._bg_color, show=False,
                                      size=self._scene_size, title=title)
         self._grid = self._sc.central_widget.add_grid(margin=10)
         self._parents = dict()
@@ -451,6 +451,7 @@ class Brain(object):
     def show(self):
         """Display the figure."""
         from vispy import app
+        self._sc.show(visible=True)
         app.run()
 
     ###########################################################################
