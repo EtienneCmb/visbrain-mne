@@ -6,7 +6,7 @@ import numpy as np
 from vispy import scene
 
 from .io import _get_subjects_dir, read_scalar_data
-from .utils import (Surface, _check_units, string_types,
+from .utils import (Surface, _check_units, string_types, Colormap,
                     smoothing_matrix, mesh_edges)
 from .visuals import BrainMesh
 
@@ -88,6 +88,7 @@ class Brain(object):
             views = ['lat']
         if not isinstance(views, list):
             views = [views]
+        self._n_rows = len(views)
 
         # _______________________ GEOMETRY _______________________
         offset = None if (not offset or hemi != 'both') else 0.0
@@ -254,6 +255,7 @@ class Brain(object):
         elif scalar_data.max() <= 0:
             sign = "neg"
 
+        # _____________________ ABS / POS / NEG _____________________
         if sign in ["abs", "pos"]:
             pos_max = np.max((0.0, np.max(scalar_data)))
             if pos_max < min:
@@ -274,6 +276,7 @@ class Brain(object):
         else:
             self.neg_lims = None
 
+        # _____________________ COLORMAP _____________________
         colormap = dict()
         if self.neg_lims is None:
             cmap, clim = 'YlOrRd_r', (self.pos_lims[1], self.pos_lims[2])
@@ -290,12 +293,52 @@ class Brain(object):
         colormap['clim'] = clim
         colormap['translucent'] = translucent
 
-        return colormap
+        # _____________________ COLORBAR _____________________
+        limits = clim
+        if isinstance(clim, list):
+            limits = (self.neg_lims[1], self.pos_lims[2])
+        cbar = Colormap(cmap=cmap).vispy
+
+        return colormap, cbar, limits
+
+    def _add_colorbar(self, colormap, clim=None, size=(60, 4), height_max=100,
+                      orientation='bottom', title=None):
+        """Add a colorbar to the scene.
+
+        Parameters
+        ----------
+        colormap : vispy.color.Colormap
+            VisPy colormap instance.
+        clim : tuple | None
+            Colorbar limits.
+        size : tuple | (60, 4)
+            Size of the colorbar.
+        height_max : float | 100.
+            Height max of the colorbar subplot.
+        orientation : {'left', 'right', 'top', 'bottom'}
+            The orientation of the colorbar;
+        title : string | None
+            Colorbar title.
+        """
+        # Create the rectangular camera :
+        w, h = size
+        rect = [-3 * w / 2, -h, w * 3, 5 * h]
+        camera = scene.cameras.PanZoomCamera(rect=rect)
+        # Create the subplot :
+        r = 1 if self._hemi in ['lh', 'rh'] else 2
+        parent = self._grid.add_view(row=self._n_rows, col=0, row_span=r,
+                                     camera=camera)
+        parent.height_max = height_max
+        # Create the colorbar :
+        self._cbar = scene.ColorBar(colormap, orientation, size, clim=clim,
+                                    label_str=title, parent=parent.scene,
+                                    label_color=self._fg_color)
 
     ###########################################################################
     # ADDING DATA PLOTS
     def add_overlay(self, source, min=2, max="robust_max", sign="abs",
-                    name=None, hemi=None):
+                    name=None, hemi=None, add_colorbar=True,
+                    colorbar_title=None):
         """Add an overlay to the overlay dict from a file or array.
 
         Parameters
@@ -321,10 +364,13 @@ class Brain(object):
         min, max = self._get_display_range(scalar_data, min, max, sign)
         if sign not in ["abs", "pos", "neg"]:
             raise ValueError("Overlay sign must be 'abs', 'pos', or 'neg'")
-        cmap = self._get_overlay_limits(scalar_data, min, max, sign)
+        cmap, cbar, lim = self._get_overlay_limits(scalar_data, min, max, sign)
         for brain in self.brains:
             if brain['hemi'] == hemi:
                 brain['brain'].add_overlay(scalar_data.copy(), **cmap)
+        # Colorbar :
+        if add_colorbar:
+            self._add_colorbar(cbar, clim=lim, title=colorbar_title)
 
     def add_data(self):
         """Doc."""
@@ -395,7 +441,7 @@ class Brain(object):
         raise NotImplementedError
 
     def set_data_smoothing_steps(self, smoothing_steps, verbose=None):
-        """Set the number of smoothing steps
+        """Set the number of smoothing steps.
 
         Parameters
         ----------
