@@ -156,9 +156,9 @@ class Brain(object):
         """Set window properties that are used elsewhere."""
         # old option "size" sets both width and height
         from matplotlib.colors import colorConverter
-        try:
+        if isinstance(size, (tuple, list)):
             width, height = size
-        except (TypeError, ValueError):
+        elif isinstance(size, int):
             width, height = size, size
         self._scene_size = height, width
         self._bg_color = colorConverter.to_rgb(background)
