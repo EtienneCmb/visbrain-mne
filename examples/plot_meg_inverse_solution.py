@@ -50,14 +50,10 @@ for hemi in ['lh']:  # , 'rh']:
 # scale colormap
 brain.scale_data_colormap(fmin=13, fmid=18, fmax=22, transparent=True)
 
-"""
-To change the time displayed to 80 ms uncomment this line
-"""
+# To change the time displayed to 80 ms uncomment this line
 # brain.set_time(0.08)
 
-"""
-uncomment these lines to use the interactive TimeViewer GUI
-"""
+# uncomment these lines to use the interactive TimeViewer GUI
 # from surfer import TimeViewer
 # viewer = TimeViewer(brain)
 
