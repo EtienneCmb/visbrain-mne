@@ -47,9 +47,7 @@ for hemi in ['lh']:  # , 'rh']:
                    smoothing_steps=5, time=time, time_label=time_label,
                    hemi=hemi, initial_time=0.1)
 
-"""
-scale colormap
-"""
+# scale colormap
 brain.scale_data_colormap(fmin=13, fmid=18, fmax=22, transparent=True)
 
 """
