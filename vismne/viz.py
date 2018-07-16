@@ -30,11 +30,46 @@ viewdicts = dict(lh=lh_viewdict, rh=rh_viewdict)
 
 
 class Brain(object):
-    """docstring for Brain."""
+    """Class for visualizing a brain using multiple views in vispy.
+
+    Parameters
+    ----------
+    subject_id : str
+        subject name in Freesurfer subjects dir
+    hemi : str
+        hemisphere id (ie 'lh', 'rh', 'both', or 'split'). In the case
+        of 'both', both hemispheres are shown in the same window.
+        In the case of 'split' hemispheres are displayed side-by-side
+        in different viewing panes.
+    surf : str
+        freesurfer surface mesh name (ie 'white', 'inflated', etc.)
+    title : str
+        title for the window
+    views : list | str
+        views to use (lateral, medial, rostral, caudal, dorsal, ventral,
+        frontal parietal)
+    offset : bool
+        If True, aligs origin with medial wall. Useful for viewing inflated
+        surface where hemispheres typically overlap (Default: True)
+    subjects_dir : str | None
+        If not None, this directory will be used as the subjects directory
+        instead of the value set using the SUBJECTS_DIR environment variable.
+    units : str
+        Can be 'm' or 'mm' (default).
+    size : float or pair of floats
+        the size of the window, in pixels. can be one number to specify
+        a square window, or the (width, height) of a rectangular window.
+    background : matplotlib color
+        Color of the background.
+    foreground : matplotlib color
+        Color of the foreground (will be used for colorbars and text).
+        None (default) will use black or white depending on the value
+        of ``background``.
+    """
 
     def __init__(self, subject_id, hemi, surf, title=None, views=['lateral'],
                  offset=True, subjects_dir=None, units='mm', size=800,
-                 foreground="white", background="black",):
+                 foreground="white", background="black",):  # noqa: D102
         self._units = _check_units(units)
         col_dict = dict(lh=1, rh=1, both=1, split=2)
         if hemi not in col_dict.keys():
