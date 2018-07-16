@@ -29,7 +29,8 @@ overlay_file = "./example_data/lh.sig.nii.gz"
 # Display the overlay on the surface using the defaults to control thresholding
 # and colorbar saturation.  These can be set through your config file. Set
 # threshold and showing only the positive activations.
-brain.add_overlay(overlay_file, min=5, max=20, sign="pos")
+brain.add_overlay(overlay_file, min=5., max=20., sign="pos",
+                  add_colorbar=True, colorbar_title='Positive activation')
 
 # Display the brain
 brain.show()
