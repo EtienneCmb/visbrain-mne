@@ -45,6 +45,8 @@ class Colormap(object):
             * (f_1, f_2) : values between f_1 and f_2 are set to translucent
             * (None, f_2) x <= f_2 are set to translucent
             * (f_1, None) f_1 <= x are set to translucent
+    smooth : bool | False
+        Smooth translucency levels.
     lut_len : int | 1024
         Number of levels for the colormap.
     interpolation : {None, 'linear', 'cubic'}
@@ -72,12 +74,12 @@ class Colormap(object):
 
     def __init__(self, cmap='viridis', clim=None, vmin=None, under=None,
                  vmax=None, over=None, translucent=None, alpha=1.,
-                 lut_len=1024, interpolation=None):
+                 smooth=False, lut_len=1024, interpolation=None):
         """Init."""
         # Keep color parameters into a dict :
         self._kw = dict(cmap=cmap, clim=clim, vmin=vmin, vmax=vmax,
                         under=under, over=over, translucent=translucent,
-                        alpha=alpha)
+                        alpha=alpha, smooth=smooth)
         self._lut_len = lut_len
         # Color conversion :
         if isinstance(cmap, np.ndarray):
@@ -241,7 +243,7 @@ def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0):
 
 def array_to_color(x, cmap='inferno', clim=None, alpha=1.0, vmin=None,
                    vmax=None, under='dimgray', over='darkred',
-                   translucent=None, faces_render=False):
+                   translucent=None, smooth=False):
     """Transform an array of data into colormap (array of RGBA).
 
     Parameters
@@ -274,6 +276,8 @@ def array_to_color(x, cmap='inferno', clim=None, alpha=1.0, vmin=None,
             * (f_1, f_2) : values between f_1 and f_2 are set to translucent
             * (None, f_2) x <= f_2 are set to translucent
             * (f_1, None) f_1 <= x are set to translucent
+    smooth : bool | False
+        Smooth translucency levels.
 
     Returns
     -------
@@ -313,28 +317,30 @@ def array_to_color(x, cmap='inferno', clim=None, alpha=1.0, vmin=None,
         x_cmap[x > vmax, :] = over
 
     # ================== Transparency ==================
-    x_cmap = _transclucent_cmap(x, x_cmap, translucent)
+    x_cmap = _transclucent_cmap(x, x_cmap, translucent, smooth)
 
     return x_cmap.astype(np.float32)
 
 
-def _transclucent_cmap(x, x_cmap, translucent, smooth=None):
+def _transclucent_cmap(x, x_cmap, translucent, smooth=False):
     """Sub function to define transparency."""
-    if translucent is not None:
-        is_num = [isinstance(k, (int, float)) for k in translucent]
-        assert len(translucent) == 2 and any(is_num)
-        if all(is_num):                # (f_1, f_2)
-            trans_x = np.logical_and(translucent[0] <= x, x <= translucent[1])
-        elif is_num == [True, False]:  # (f_1, None)
-            trans_x = translucent[0] <= x
-        elif is_num == [False, True]:  # (None, f_2)
-            trans_x = x <= translucent[1]
+    if translucent is None:
+        return x_cmap
+    # Translucent (f_1, f_2) :
+    is_num = [isinstance(k, (int, float)) for k in translucent]
+    assert len(translucent) == 2 and any(is_num)
+    if all(is_num):                # (f_1, f_2)
+        trans_x = np.logical_and(translucent[0] <= x, x <= translucent[1])
+    elif is_num == [True, False]:  # (f_1, None)
+        trans_x = x <= translucent[0]
+    elif is_num == [False, True]:  # (None, f_2)
+        trans_x = translucent[1] <= x
+    # Set alpha :
+    if smooth:
+        alphas = np.linspace(0., 1., int(trans_x.sum()))
+        x_cmap[trans_x, -1] = alphas
+    else:
         x_cmap[..., -1] = np.invert(trans_x)
-        if isinstance(smooth, int):
-            alphas = x_cmap[:, -1]
-            alphas = np.convolve(alphas, np.hanning(smooth), 'valid')
-            alphas /= max(alphas.max(), 1.)
-            x_cmap[smooth - 1::, -1] = alphas
     return x_cmap
 
 
