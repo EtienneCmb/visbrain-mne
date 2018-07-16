@@ -128,6 +128,11 @@ class Colormap(object):
         else:
             return array_to_color(data, **self._kw)
 
+    def update(self, kw):
+        """Update colormap preoperties with a dict."""
+        for k, i in kw.items():
+            self[k] = i
+
     def __len__(self):
         """Get the number of colors in the colormap."""
         return self._data.shape[0]
