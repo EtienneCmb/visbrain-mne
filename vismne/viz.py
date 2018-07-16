@@ -317,10 +317,10 @@ class Brain(object):
         min, max = self._get_display_range(scalar_data, min, max, sign)
         if sign not in ["abs", "pos", "neg"]:
             raise ValueError("Overlay sign must be 'abs', 'pos', or 'neg'")
-        old = OverlayData(scalar_data, min, max, sign)
+        cmap = self._get_overlay_limits(scalar_data, min, max, sign)
         for brain in self.brains:
             if brain['hemi'] == hemi:
-                brain['brain'].add_overlay(scalar_data.copy(), clim=(5., 20.))
+                brain['brain'].add_overlay(scalar_data.copy(), **cmap)
 
     def add_data(self):
         """Doc."""
