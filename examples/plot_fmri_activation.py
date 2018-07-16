@@ -6,6 +6,10 @@ The most straightforward way to plot activations is when you already have a map
 of them defined on the Freesurfer surface. This map can be stored in any file
 format that Nibabel can understand.
 """
+# Author: Etienne Combrisson <e.combrisson@gmail.com>
+#
+# License: BSD (3-clause)
+
 import os
 
 from vismne import Brain
