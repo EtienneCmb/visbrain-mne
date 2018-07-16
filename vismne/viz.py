@@ -6,7 +6,8 @@ import numpy as np
 from vispy import scene
 
 from .io import _get_subjects_dir, read_scalar_data
-from .utils import Surface, _check_units, string_types
+from .utils import (Surface, _check_units, string_types,
+                    smoothing_matrix, mesh_edges)
 from .visuals import BrainMesh
 
 
@@ -136,9 +137,8 @@ class Brain(object):
                         kwrci = dict(parent=parent, camera=camera)
                         self._parents[(ri, ci)] = kwrci
                         parent.camera = camera
-                    else:
-                        parent = self._parents[(ri, ci)]['parent']
-                        camera = self._parents[(ri, ci)]['camera']
+                    parent = self._parents[(ri, ci)]['parent']
+                    camera = self._parents[(ri, ci)]['camera']
                     # Mesh creation :
                     geo = self.geo[h]
                     brain = BrainMesh(vertices=geo.coords, faces=geo.faces,
@@ -394,9 +394,39 @@ class Brain(object):
         """Doc."""
         raise NotImplementedError
 
-    def set_data_smoothing_steps(self):
-        """Doc."""
-        raise NotImplementedError
+    def set_data_smoothing_steps(self, smoothing_steps, verbose=None):
+        """Set the number of smoothing steps
+
+        Parameters
+        ----------
+        smoothing_steps : int
+            Number of smoothing steps
+        verbose : bool, str, int, or None
+            If not None, override default verbose level (see surfer.verbose).
+        """
+        for hemi in ['lh', 'rh']:
+            data = self.data_dict[hemi]
+            if data is not None:
+                adj_mat = mesh_edges(self.geo[hemi].faces)
+                smooth_mat = smoothing_matrix(data["vertices"],
+                                              adj_mat, smoothing_steps)
+                data["smooth_mat"] = smooth_mat
+
+                # Redraw
+                if data["array"].ndim == 1:
+                    plot_data = data["array"]
+                elif data["array"].ndim == 2:
+                    plot_data = data["array"][:, data["time_idx"]]
+                else:  # vector-valued
+                    plot_data = data["magnitude"][:, data["time_idx"]]
+
+                plot_data = data["smooth_mat"] * plot_data
+                for brain in self.brains:
+                    if brain.hemi == hemi:
+                        brain.set_data(data['layer_id'], plot_data)
+
+                # Update data properties
+                data["smoothing_steps"] = smoothing_steps
 
     def index_for_time(self):
         """Doc."""
