@@ -6,6 +6,7 @@ import numpy as np
 
 from matplotlib import cm
 import matplotlib.colors as mplcol
+from vispy.color import Colormap as VispyColormap
 
 from .math import vispy_array
 
@@ -142,6 +143,11 @@ class Colormap(object):
     def shape(self):
         """Get the shape of the data."""
         return self._data.shape
+
+    @property
+    def vispy(self):
+        """Return a vispy colormap based on data."""
+        return VispyColormap(self._data)
 
     # @property
     # def glsl(self):
