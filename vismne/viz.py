@@ -471,8 +471,9 @@ class Brain(object):
                 return time_label_fmt % x
         # Colorbar :
         if colorbar:
+            title = time_label(time[initial_time_index])
             cbar = self.brains[0]['brain'].get_colormap(0)
-            self._add_colorbar(cbar, clim=cbar['clim'], title=time_label(initial_time_index))
+            self._add_colorbar(cbar, clim=cbar['clim'], title=title)
 
     def add_annotation(self):
         """Doc."""
