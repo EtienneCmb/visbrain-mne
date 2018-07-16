@@ -245,6 +245,49 @@ class Brain(object):
 
         return min, max
 
+    def _get_overlay_limits(self, scalar_data, min, max, sign):
+        """Get the limits of the overlay."""
+        if scalar_data.min() >= 0:
+            sign = "pos"
+        elif scalar_data.max() <= 0:
+            sign = "neg"
+
+        if sign in ["abs", "pos"]:
+            pos_max = np.max((0.0, np.max(scalar_data)))
+            if pos_max < min:
+                thresh_low = pos_max
+            else:
+                thresh_low = min
+            self.pos_lims = [thresh_low, min, max]
+        else:
+            self.pos_lims = None
+
+        if sign in ["abs", "neg"]:
+            neg_min = np.min((0.0, np.min(scalar_data)))
+            if neg_min > -min:
+                thresh_up = neg_min
+            else:
+                thresh_up = -min
+            self.neg_lims = [thresh_up, -max, -min]
+        else:
+            self.neg_lims = None
+
+        colormap = dict()
+        if self.neg_lims is None:
+            cmap, clim = 'Reds_r', (self.pos_lims[1], self.pos_lims[2])
+            translucent = (None, self.pos_lims[1])
+        if self.pos_lims is None:
+            cmap, clim = 'PuBu', (self.neg_lims[1], self.neg_lims[2])
+            translucent = (self.neg_lims[2], None)
+        if self.neg_lims and self.pos_lims:
+            cmap, clim = 'bwr', (self.neg_lims[1], self.pos_lims[2])
+            translucent = None
+        colormap['cmap'] = cmap
+        colormap['clim'] = clim
+        colormap['translucent'] = translucent
+
+        return colormap
+
     ###########################################################################
     # ADDING DATA PLOTS
     def add_overlay(self, source, min=2, max="robust_max", sign="abs",
@@ -413,37 +456,3 @@ class Brain(object):
     def animate(self):
         """Doc."""
         raise NotImplementedError
-
-
-class OverlayData(object):
-    """Encapsulation of statistical neuroimaging overlay viz data."""
-
-    def __init__(self, scalar_data, min, max, sign):
-        if scalar_data.min() >= 0:
-            sign = "pos"
-        elif scalar_data.max() <= 0:
-            sign = "neg"
-
-        if sign in ["abs", "pos"]:
-            # Figure out the correct threshold to avoid TraitErrors
-            # This seems like not the cleanest way to do this
-            pos_max = np.max((0.0, np.max(scalar_data)))
-            if pos_max < min:
-                thresh_low = pos_max
-            else:
-                thresh_low = min
-            self.pos_lims = [thresh_low, min, max]
-        else:
-            self.pos_lims = None
-
-        if sign in ["abs", "neg"]:
-            # Figure out the correct threshold to avoid TraitErrors
-            # This seems even less clean due to negative convolutedness
-            neg_min = np.min((0.0, np.min(scalar_data)))
-            if neg_min > -min:
-                thresh_up = neg_min
-            else:
-                thresh_up = -min
-            self.neg_lims = [thresh_up, -max, -min]
-        else:
-            self.neg_lims = None
