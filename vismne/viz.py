@@ -10,22 +10,22 @@ from .utils import Surface, _check_units, string_types
 from .visuals import BrainMesh
 
 
-lh_viewdict = {'lateral': {'v': (-90., 0.), 'r': 90., 'xyz': [1, 2]},
-               'medial': {'v': (90., 0.), 'r': -90., 'xyz': [1, 2]},
-               'rostral': {'v': (180., 0.), 'r': -180., 'xyz': [0, 2]},
-               'caudal': {'v': (0., 0.), 'r': 0., 'xyz': [0, 2]},
-               'dorsal': {'v': (0., 90.), 'r': 90., 'xyz': [0, 1]},
-               'ventral': {'v': (0., -90.), 'r': 90., 'xyz': [0, 1]},
-               'frontal': {'v': (120., 80.), 'r': 106.739, 'xyz': [0, 1]},
-               'parietal': {'v': (-120., 60.), 'r': 49.106, 'xyz': [0, 1]}}
-rh_viewdict = {'lateral': {'v': (90., 0.), 'r': -90., 'xyz': [1, 2]},
-               'medial': {'v': (-90., 0.), 'r': 90., 'xyz': [1, 2]},
-               'rostral': {'v': (180., 0.), 'r': 180., 'xyz': [0, 2]},
-               'caudal': {'v': (0., 0.), 'r': 0., 'xyz': [0, 2]},
-               'dorsal': {'v': (0., 90.), 'r': 90., 'xyz': [0, 1]},
-               'ventral': {'v': (0., -90.), 'r': 90., 'xyz': [0, 1]},
-               'frontal': {'v': (60., 80.), 'r': -106.739, 'xyz': [0, 1]},
-               'parietal': {'v': (-60., 60.), 'r': -49.106, 'xyz': [0, 1]}}
+lh_viewdict = {'lat': {'v': (-90., 0.), 'r': 90., 'xyz': [1, 2]},
+               'med': {'v': (90., 0.), 'r': -90., 'xyz': [1, 2]},
+               'ros': {'v': (180., 0.), 'r': -180., 'xyz': [0, 2]},
+               'cau': {'v': (0., 0.), 'r': 0., 'xyz': [0, 2]},
+               'dor': {'v': (0., 90.), 'r': 90., 'xyz': [0, 1]},
+               'ven': {'v': (0., -90.), 'r': 90., 'xyz': [0, 1]},
+               'fro': {'v': (120., 80.), 'r': 106.739, 'xyz': [0, 1]},
+               'par': {'v': (-120., 60.), 'r': 49.106, 'xyz': [0, 1]}}
+rh_viewdict = {'lat': {'v': (90., 0.), 'r': -90., 'xyz': [1, 2]},
+               'med': {'v': (-90., 0.), 'r': 90., 'xyz': [1, 2]},
+               'ros': {'v': (180., 0.), 'r': 180., 'xyz': [0, 2]},
+               'cau': {'v': (0., 0.), 'r': 0., 'xyz': [0, 2]},
+               'dor': {'v': (0., 90.), 'r': 90., 'xyz': [0, 1]},
+               'ven': {'v': (0., -90.), 'r': 90., 'xyz': [0, 1]},
+               'fro': {'v': (60., 80.), 'r': -106.739, 'xyz': [0, 1]},
+               'par': {'v': (-60., 60.), 'r': -49.106, 'xyz': [0, 1]}}
 viewdicts = dict(lh=lh_viewdict, rh=rh_viewdict)
 
 
@@ -46,8 +46,8 @@ class Brain(object):
     title : str
         title for the window
     views : list | str
-        views to use (lateral, medial, rostral, caudal, dorsal, ventral,
-        frontal parietal)
+        views to use (lat, med, ros, cau, dor, ven, fro, par). By default,
+        only lateral view is shown.
     offset : bool
         If True, aligs origin with medial wall. Useful for viewing inflated
         surface where hemispheres typically overlap (Default: True)
@@ -67,7 +67,7 @@ class Brain(object):
         of ``background``.
     """
 
-    def __init__(self, subject_id, hemi, surf, title=None, views=['lateral'],
+    def __init__(self, subject_id, hemi, surf, title=None, views=None,
                  offset=True, subjects_dir=None, units='mm', size=800,
                  foreground="white", background="black",):  # noqa: D102
         self._units = _check_units(units)
@@ -83,6 +83,8 @@ class Brain(object):
             title = subject_id
         self.subject_id = subject_id
 
+        if views is None:
+            views = ['lat']
         if not isinstance(views, list):
             views = [views]
 
