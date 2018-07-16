@@ -155,6 +155,9 @@ class Brain(object):
                     brain.show_view(viewdicts[h][view], self._scene_size,
                                     cam_state)
         self.brains = brains
+        self._times = None
+        self.n_times = None
+        self._cbar_is_displayed = False
 
     def _set_window_properties(self, size, background, foreground):
         """Set window properties that are used elsewhere."""
@@ -365,6 +368,10 @@ class Brain(object):
             If None, it is assumed to belong to the hemipshere being
             shown. If two hemispheres are being shown, an error will
             be thrown.
+        colorbar : bool | True
+            Add a colorbar to the figure.
+        colorbar_title : string | None
+            Colorbar title.
         """
         hemi = self._check_hemi(hemi)
         # load data here
@@ -377,12 +384,88 @@ class Brain(object):
             if brain['hemi'] == hemi:
                 brain['brain'].add_overlay(scalar_data.copy(), **cmap)
         # Colorbar :
-        if add_colorbar:
+        if colorbar:
             self._add_colorbar(cbar, clim=lim, title=colorbar_title)
 
-    def add_data(self):
+    def add_data(self, array, min=None, max=None, thresh=None, colormap="auto",
+                 alpha=1, vertices=None, smoothing_steps=20, time=None,
+                 time_label="time index=%d", colorbar=True, hemi=None,
+                 remove_existing=False, time_label_size=14, initial_time=None,
+                 scale_factor=None, vector_alpha=None, mid=None, center=None,
+                 transparent=False, verbose=None):
         """Doc."""
-        raise NotImplementedError
+        hemi = self._check_hemi(hemi)
+        array = np.asarray(array)
+
+        # ____________________ MIN / MAX / CENTER ____________________
+        if center is None:
+            if min is None:
+                min = array.min() if array.size > 0 else 0
+            if max is None:
+                max = array.max() if array.size > 0 else 1
+        else:
+            if min is None:
+                min = 0
+            if max is None:
+                max = np.abs(center - array).max() if array.size > 0 else 1
+        if mid is None:
+            mid = (min + max) / 2.
+        _check_limits(min, mid, max, extra='')
+
+        # ____________________ SMOOTHING ____________________
+        if len(array) < self.geo[hemi].x.shape[0]:
+            if vertices is None:
+                raise ValueError("len(data) < nvtx (%s < %s): the vertices "
+                                 "parameter must not be None"
+                                 % (len(array), self.geo[hemi].x.shape[0]))
+            adj_mat = mesh_edges(self.geo[hemi].faces)
+            smooth_mat = smoothing_matrix(vertices, adj_mat, smoothing_steps)
+        else:
+            smooth_mat = None
+
+        # ____________________ TIME INDEX ____________________
+        if array.ndim <= 1:
+            initial_time_index = None
+        else:
+            # check time array
+            if time is None:
+                time = np.arange(array.shape[-1])
+            else:
+                time = np.asarray(time)
+                if time.shape != (array.shape[-1],):
+                    raise ValueError('time has shape %s, but need shape %s '
+                                     '(array.shape[-1])' %
+                                     (time.shape, (array.shape[-1],)))
+
+            if self.n_times is None:
+                self.n_times = len(time)
+                self._times = time
+            elif len(time) != self.n_times:
+                raise ValueError("New n_times is different from previous "
+                                 "n_times")
+            elif not np.array_equal(time, self._times):
+                raise ValueError("Not all time values are consistent with "
+                                 "previously set times.")
+
+            # initial time
+            if initial_time is None:
+                initial_time_index = None
+            else:
+                initial_time_index = self.index_for_time(initial_time)
+
+        # ____________________ OVERLAY ____________________
+        for brain in self.brains:
+            if brain['hemi'] == hemi:
+                brain['brain'].add_data(array[:, initial_time_index],
+                                        smooth_mat, cmap=colormap)
+
+        self.scale_data_colormap(min, mid, max, transparent, alpha)
+
+        # ____________________ COLORBAR ____________________
+        # Colorbar :
+        if colorbar:
+            cbar = self.brains[0]['brain'].get_colormap(0)
+            self._add_colorbar(cbar, clim=cbar['clim'])
 
     def add_annotation(self):
         """Doc."""
@@ -436,9 +519,16 @@ class Brain(object):
         """Doc."""
         raise NotImplementedError
 
-    def scale_data_colormap(self):
+    def scale_data_colormap(self, fmin, fmid, fmax, transparent, alpha=1.):
         """Doc."""
-        raise NotImplementedError
+        kw = dict(clim=(fmin, fmax), alpha=alpha, translucent=(fmid, None),
+                  smooth=transparent)
+        for brain in self.brains:
+            brain['brain'].update_colormap(0, **kw)
+
+        if self._cbar_is_displayed:
+            cbar = self.brains[0]['brain'].get_colormap(0)
+            self._add_colorbar(cbar, clim=cbar['clim'])
 
     def set_data_time_index(self):
         """Doc."""
@@ -482,9 +572,45 @@ class Brain(object):
                 # Update data properties
                 data["smoothing_steps"] = smoothing_steps
 
-    def index_for_time(self):
-        """Doc."""
-        raise NotImplementedError
+    def index_for_time(self, time, rounding='closest'):
+        """Find the data time index closest to a specific time point.
+
+        Parameters
+        ----------
+        time : scalar
+            Time.
+        rounding : 'closest' | 'up' | 'down'
+            How to round if the exact time point is not an index.
+
+        Returns
+        -------
+        index : int
+            Data time index closest to time.
+        """
+        if self.n_times is None:
+            raise RuntimeError("Brain has no time axis")
+        times = self._times
+
+        # Check that time is in range
+        tmin = np.min(times)
+        tmax = np.max(times)
+        max_diff = (tmax - tmin) / (len(times) - 1) / 2
+        if time < tmin - max_diff or time > tmax + max_diff:
+            err = ("time = %s lies outside of the time axis "
+                   "[%s, %s]" % (time, tmin, tmax))
+            raise ValueError(err)
+
+        if rounding == 'closest':
+            idx = np.argmin(np.abs(times - time))
+        elif rounding == 'up':
+            idx = np.nonzero(times >= time)[0][0]
+        elif rounding == 'down':
+            idx = np.nonzero(times <= time)[0][-1]
+        else:
+            err = "Invalid rounding parameter: %s" % repr(rounding)
+            raise ValueError(err)
+
+        return idx
 
     def set_time(self):
         """Doc."""
@@ -545,3 +671,13 @@ class Brain(object):
     def animate(self):
         """Doc."""
         raise NotImplementedError
+
+
+def _check_limits(fmin, fmid, fmax, extra='f'):
+    """Check for monotonicity."""
+    if fmin >= fmid:
+        raise ValueError('%smin must be < %smid, got %0.4g >= %0.4g'
+                         % (extra, extra, fmin, fmid))
+    if fmid >= fmax:
+        raise ValueError('%smid must be < %smax, got %0.4g >= %0.4g'
+                         % (extra, extra, fmid, fmax))
