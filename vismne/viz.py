@@ -135,6 +135,7 @@ class Brain(object):
                         camera = scene.cameras.TurntableCamera()
                         parent = self._grid.add_view(row=ri, col=ci,
                                                      camera=camera)
+                        parent.height_max = self._scene_size[0] / self._n_rows
                         kwrci = dict(parent=parent, camera=camera)
                         self._parents[(ri, ci)] = kwrci
                         parent.camera = camera
