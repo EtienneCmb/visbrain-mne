@@ -45,7 +45,7 @@ for hemi in ['lh']:  # , 'rh']:
     # add data and set the initial time displayed to 100 ms
     brain.add_data(data, colormap=colormap, vertices=vertices,
                    smoothing_steps=5, time=time, time_label=time_label,
-                   hemi=hemi, initial_time=0.1)
+                   hemi=hemi, initial_time=0.10)
 
 # scale colormap
 brain.scale_data_colormap(fmin=13, fmid=18, fmax=22, transparent=True)
