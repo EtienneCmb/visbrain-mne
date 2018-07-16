@@ -21,7 +21,6 @@ data_path = sample.data_path()
 subjects_dir = os.path.join(data_path, 'subjects')
 
 # Bring up the visualization window.
-views = ['lateral']
 brain = Brain("fsaverage", "lh", "inflated", subjects_dir=subjects_dir)
 
 # Get a path to the overlay file.
