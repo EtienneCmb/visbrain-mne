@@ -375,6 +375,22 @@ class BrainVisual(Visual):
         colormap = self._colormaps[overlay]
         return colormap
 
+    def add_data(self, array, smooth_mat, **kw):
+        """Add data to the mesh."""
+        # Calculate initial data to plot
+        if array.ndim == 1:
+            array_plot = array
+        elif array.ndim == 2:
+            array_plot = array[:, 0]
+        elif array.ndim == 3:
+            assert array.shape[1] == 3  # should always be true
+        else:
+            raise ValueError("data has to be 1D, 2D, or 3D")
+        if smooth_mat is not None:
+            array_plot = smooth_mat * array_plot
+
+        self.add_overlay(array_plot, **kw)
+
     def set_camera(self, camera=None):
         """Set a camera to the mesh.
 
