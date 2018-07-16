@@ -180,8 +180,7 @@ class Colormap(object):
         return self._data[:, -1]
 
 
-def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
-             faces_index=False):
+def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0):
     """Turn into a RGBA compatible color format.
 
     This function can tranform a tuple of RGB, a matplotlib color or an
@@ -198,9 +197,6 @@ def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
         The length of the output array.
     alpha : float | 1
         The opacity (Last digit of the RGBA tuple).
-    faces_index : bool | False
-        Specify if the returned color have to be compatible with faces index
-        (e.g a (n_color, 3, 4) array).
 
     Return
     ------
@@ -236,10 +232,6 @@ def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
         vcolor = np.concatenate((np.array([list(coltuple)] * length),
                                  alpha * np.ones((length, 1),
                                                  dtype=np.float32)), axis=1)
-
-        # Faces index :
-        if faces_index:
-            vcolor = np.tile(vcolor[:, np.newaxis, :], (1, 3, 1))
 
         return vcolor.astype(np.float32)
     else:
@@ -282,8 +274,6 @@ def array_to_color(x, cmap='inferno', clim=None, alpha=1.0, vmin=None,
             * (f_1, f_2) : values between f_1 and f_2 are set to translucent
             * (None, f_2) x <= f_2 are set to translucent
             * (f_1, None) f_1 <= x are set to translucent
-    faces_render : boll | False
-        Precise if the render should be applied to faces
 
     Returns
     -------
