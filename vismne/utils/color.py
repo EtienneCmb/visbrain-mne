@@ -351,6 +351,7 @@ def _transclucent_cmap(x, x_cmap, translucent, smooth=None):
 def _multi_cmap(data, kw):
     """Color array using multiple colormaps."""
     cmap, clim = kw['cmap'], kw['clim']
+    clim = [None] * 3 if clim is None else clim
     assert len(data) % len(cmap) == 0
     assert isinstance(cmap, list) and isinstance(clim, list)
     # Split vector data :
