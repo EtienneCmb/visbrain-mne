@@ -280,10 +280,10 @@ class Brain(object):
         colormap = dict()
         if self.neg_lims is None:
             cmap, clim = 'YlOrRd_r', (self.pos_lims[1], self.pos_lims[2])
-            translucent = (None, self.pos_lims[0])
+            translucent = (self.pos_lims[0], None)
         if self.pos_lims is None:
             cmap, clim = 'PuBu', (self.neg_lims[1], self.neg_lims[2])
-            translucent = (self.neg_lims[0], None)
+            translucent = (None, self.neg_lims[0])
         if self.neg_lims and self.pos_lims:
             cmap = ['PuBu', 'YlOrRd_r']
             clim = [(self.neg_lims[1], self.neg_lims[2]),
