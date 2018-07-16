@@ -77,6 +77,7 @@ class Colormap(object):
         self._kw = dict(cmap=cmap, clim=clim, vmin=vmin, vmax=vmax,
                         under=under, over=over, translucent=translucent,
                         alpha=alpha)
+        self._lut_len = lut_len
         # Color conversion :
         if isinstance(cmap, np.ndarray):
             assert (cmap.ndim == 2) and (cmap.shape[-1] in (3, 4))
@@ -96,6 +97,8 @@ class Colormap(object):
                 data = f(x, np.linspace(0, 1, lut_len))
         elif isinstance(cmap, str):
             data = array_to_color(np.linspace(0., 1., lut_len), **self._kw)
+        elif isinstance(cmap, list):
+            data = _multi_cmap(np.linspace(0., 1., lut_len), self._kw)
         # Alpha correction :
         if data.shape[-1] == 3:
             data = np.c_[data, np.full((data.shape[0],), alpha)]
@@ -117,6 +120,8 @@ class Colormap(object):
         """
         if isinstance(self._kw['cmap'], np.ndarray):
             return self._data
+        elif isinstance(self._kw['cmap'], list):
+            return _multi_cmap(data, self._kw)
         else:
             return array_to_color(data, **self._kw)
 
@@ -335,3 +340,18 @@ def _transclucent_cmap(x, x_cmap, translucent, smooth=None):
             alphas /= max(alphas.max(), 1.)
             x_cmap[smooth - 1::, -1] = alphas
     return x_cmap
+
+
+def _multi_cmap(data, kw):
+    """Color array using multiple colormaps."""
+    cmap, clim = kw['cmap'], kw['clim']
+    assert len(data) % len(cmap) == 0
+    assert isinstance(cmap, list) and isinstance(clim, list)
+    # Split vector data :
+    vec = np.split(data, len(cmap))
+    _data = []
+    for v, c, cl in zip(vec, cmap, clim):
+        kw = kw.copy()
+        kw['cmap'], kw['clim'] = c, cl
+        _data += [array_to_color(v, **kw)]
+    return np.concatenate(tuple(_data))

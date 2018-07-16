@@ -274,14 +274,16 @@ class Brain(object):
 
         colormap = dict()
         if self.neg_lims is None:
-            cmap, clim = 'Reds_r', (self.pos_lims[1], self.pos_lims[2])
-            translucent = (None, self.pos_lims[1])
+            cmap, clim = 'YlOrRd_r', (self.pos_lims[1], self.pos_lims[2])
+            translucent = (None, self.pos_lims[0])
         if self.pos_lims is None:
             cmap, clim = 'PuBu', (self.neg_lims[1], self.neg_lims[2])
-            translucent = (self.neg_lims[2], None)
+            translucent = (self.neg_lims[0], None)
         if self.neg_lims and self.pos_lims:
-            cmap, clim = 'bwr', (self.neg_lims[1], self.pos_lims[2])
-            translucent = None
+            cmap = ['PuBu', 'YlOrRd_r']
+            clim = [(self.neg_lims[1], self.neg_lims[2]),
+                    (self.pos_lims[1], self.pos_lims[2])]
+            translucent = (self.neg_lims[0], self.pos_lims[0])
         colormap['cmap'] = cmap
         colormap['clim'] = clim
         colormap['translucent'] = translucent
