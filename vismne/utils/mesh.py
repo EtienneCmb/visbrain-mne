@@ -1,3 +1,4 @@
+"""Utility mesh functions."""
 from os import path as op
 
 import numpy as np
