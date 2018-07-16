@@ -136,6 +136,10 @@ class Colormap(object):
         """Get a color item."""
         return self._kw[name]
 
+    def __setitem__(self, name, value):
+        """Set color item."""
+        self._kw[name] = value
+
     @property
     def data(self):
         """Get colormap data."""
