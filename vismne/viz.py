@@ -342,7 +342,8 @@ class Brain(object):
                                         label_color=self._fg_color)
         else:
             self._cbar.cmap = colormap.vispy
-            self._cbar.clim = colormap['clim']
+            self._cbar._ticks[0].text = str(clim[0])
+            self._cbar._ticks[1].text = str(clim[1])
         self._cbar.update()
         self._cbar_is_displayed = True
 
