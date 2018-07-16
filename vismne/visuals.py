@@ -232,8 +232,8 @@ class BrainVisual(Visual):
 
         # Find ratio for the camera :
         v_max, v_min = vertices.max(0), vertices.min(0)
-        self._cam_center = (v_max + v_min).astype(float) / 2.
-        self._lim_xyz = (v_max - v_min).astype(float)
+        self._cam_center = (v_max + v_min) / 2.
+        self._lim_xyz = (v_max - v_min)
 
         # ____________________ BUFFERS ____________________
         # Vertices // faces // normals :
