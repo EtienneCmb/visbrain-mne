@@ -134,9 +134,8 @@ class Brain(object):
                         kwrci = dict(parent=parent, camera=camera)
                         self._parents[(ri, ci)] = kwrci
                         parent.camera = camera
-                    else:
-                        parent = self._parents[(ri, ci)]['parent']
-                        camera = self._parents[(ri, ci)]['camera']
+                    parent = self._parents[(ri, ci)]['parent']
+                    camera = self._parents[(ri, ci)]['camera']
                     # Mesh creation :
                     geo = self.geo[h]
                     brain = BrainMesh(vertices=geo.coords, faces=geo.faces,
