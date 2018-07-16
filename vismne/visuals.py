@@ -155,6 +155,7 @@ class BrainVisual(Visual):
         self._alpha = alpha
         self._n_overlay = 0
         self._data_lim = []
+        self._colormaps = []
 
         # Initialize the vispy.Visual class with the vertex / fragment buffer :
         Visual.__init__(self, vcode=VERT_SHADER, fcode=FRAG_SHADER)
@@ -320,6 +321,7 @@ class BrainVisual(Visual):
         colormap = Colormap(**kwargs)
         vec = np.linspace(data_lim[0], data_lim[1], LUT_LEN)
         self._text2d_data[to_overlay, ...] = colormap.to_rgba(vec)
+        self._colormaps.append(colormap)
         # Send data to the mask :
         if isinstance(mask_data, np.ndarray) and len(mask_data) == len(self):
             self._bgd_data[mask_data] = .5
@@ -358,12 +360,20 @@ class BrainVisual(Visual):
         """
         if self._n_overlay >= 1:
             overlay = self._n_overlay - 1 if to_overlay is None else to_overlay
-            # Define the colormap data :
+            # Get limits and colormap of the overlay :
             data_lim = self._data_lim[overlay]
+            colormap = self._colormaps[overlay]
+            colormap.update(kwargs)
+            # Define the colormap data :
             col = np.linspace(data_lim[0], data_lim[1], LUT_LEN)
-            self._text2d_data[overlay, ...] = Colormap(**kwargs).to_rgba(col)
+            self._text2d_data[overlay, ...] = colormap.to_rgba(col)
             self._text2d.set_data(self._text2d_data)
             self.update()
+
+    def get_colormap(self, overlay=0):
+        """Get the colormap and limits of an overlay."""
+        colormap = self._colormaps[overlay]
+        return colormap
 
     def set_camera(self, camera=None):
         """Set a camera to the mesh.
