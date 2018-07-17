@@ -101,15 +101,13 @@ class Brain(object):
             geo_hemis = ['rh']
         else:
             raise ValueError('bad hemi value')
-        # geo_kwargs, geo_reverse, geo_curv = self._get_geo_params(cortex, alpha)
         for h in geo_hemis:
             # Initialize a Surface object as the geometry
             geo = Surface(subject_id, h, surf, subjects_dir, offset,
                           units=self._units)
             # Load in the geometry and (maybe) curvature
             geo.load_geometry()
-            if True:  #geo_curv:
-                geo.load_curvature()
+            geo.load_curvature()
             self.geo[h] = geo
 
         # _______________________ PARENT _______________________
@@ -392,9 +390,63 @@ class Brain(object):
                  alpha=1, vertices=None, smoothing_steps=20, time=None,
                  time_label="time index=%d", colorbar=True, hemi=None,
                  remove_existing=False, time_label_size=14, initial_time=None,
-                 scale_factor=None, vector_alpha=None, mid=None, center=None,
-                 transparent=False, verbose=None):
-        """Doc."""
+                 mid=None, center=None, transparent=False, verbose=None):
+        """Display data from a numpy array on the surface.
+
+        Parameters
+        ----------
+        array : numpy array, shape (n_vertices[, n_times])
+            Data array.
+        min : float
+            min value in colormap (uses real min if None)
+        max : float
+            max value in colormap (uses real max if None)
+        thresh : None or float
+            if not None, values below thresh will not be visible
+        colormap : string, list of colors, or array
+            name of matplotlib colormap to use, a list of matplotlib colors,
+            or a custom look up table (an n x 4 array coded with RBGA values
+            between 0 and 255), the default "auto" chooses a default divergent
+            colormap, if "center" is given (currently "icefire"), otherwise a
+            default sequential colormap (currently "rocket").
+        alpha : float in [0, 1]
+            alpha level to control opacity of the overlay.
+        vertices : numpy array
+            vertices for which the data is defined (needed if len(data) < nvtx)
+        smoothing_steps : int or None
+            number of smoothing steps (smoothing is used if len(data) < nvtx)
+            Default : 20
+        time : numpy array
+            time points in the data array (if data is 2D or 3D)
+        time_label : str | callable | None
+            format of the time label (a format string, a function that maps
+            floating point time values to strings, or None for no label)
+        colorbar : bool
+            whether to add a colorbar to the figure
+        hemi : str | None
+            If None, it is assumed to belong to the hemisphere being
+            shown. If two hemispheres are being shown, an error will
+            be thrown.
+        remove_existing : bool
+            Remove surface added by previous "add_data" call. Useful for
+            conserving memory when displaying different data in a loop.
+        time_label_size : int
+            Font size of the time label (default 14)
+        initial_time : float | None
+            Time initially shown in the plot. ``None`` to use the first time
+            sample (default).
+        mid : float
+            intermediate value in colormap (middle between min and max if None)
+        center : float or None
+            if not None, center of a divergent colormap, changes the meaning of
+            min, max and mid, see :meth:`scale_data_colormap` for further info.
+        transparent : bool
+            if True: use a linear transparency between fmin and fmid and make
+            values below fmin fully transparent (symmetrically for divergent
+            colormaps)
+        verbose : bool, str, int, or None
+            If not None, override default verbose level.
+        """
         hemi = self._check_hemi(hemi)
         array = np.asarray(array)
 
