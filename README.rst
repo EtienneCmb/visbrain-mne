@@ -8,7 +8,8 @@ visbrain-mne
 
 To install, run the following command::
 
-	$ pip install vispy PyOpenGL
+	$ pip install git+https://github.com/vispy/vispy.git
+	$ pip install PyOpenGL
 	$ pip install git+https://github.com/EtienneCmb/visbrain-mne.git
 
 To test, run the example::
