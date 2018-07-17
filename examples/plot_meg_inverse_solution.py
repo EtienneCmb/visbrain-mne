@@ -1,12 +1,23 @@
+"""
+Display MEG inverse solution
+============================
+
+This example shows how to use visbrain-mne to plot
+inverse solutions
+"""
+# Author: Etienne Combrisson <e.combrisson@gmail.com>
+#
+# License: BSD (3-clause)
+
 import os
 import numpy as np
 
+import mne
 from mne.datasets import sample
 
 from vismne import Brain
-from vismne.io import read_stc
 
-# print(__doc__)
+print(__doc__)
 
 # define subject, surface and hemisphere(s) to plot
 data_path = sample.data_path()
@@ -29,14 +40,15 @@ def time_label(t):
 for hemi in ['lh']:  # , 'rh']:
     stc_fname = os.path.join(*(".", "example_data", 'meg_source_estimate-' +
                                hemi + '.stc'))
-    stc = read_stc(stc_fname)
+    stc = mne.read_source_estimate(stc_fname)
 
     # data and vertices for which the data is defined
-    data = stc['data']
-    vertices = stc['vertices']
+    data = stc.data
+    vertices = stc.vertices[0]
+    data = data[vertices]
 
     # time points (in seconds)
-    time = np.linspace(stc['tmin'], stc['tmin'] + data.shape[1] * stc['tstep'],
+    time = np.linspace(stc.tmin, stc.tmin + data.shape[1] * stc.tstep,
                        data.shape[1], endpoint=False)
 
     # colormap to use
@@ -49,12 +61,4 @@ for hemi in ['lh']:  # , 'rh']:
 
 # scale colormap
 brain.scale_data_colormap(fmin=13, fmid=18, fmax=22, transparent=True)
-
-# To change the time displayed to 80 ms uncomment this line
-# brain.set_time(0.08)
-
-# uncomment these lines to use the interactive TimeViewer GUI
-# from surfer import TimeViewer
-# viewer = TimeViewer(brain)
-
 brain.show()
