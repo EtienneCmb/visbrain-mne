@@ -340,8 +340,8 @@ class Brain(object):
                                         label_color=self._fg_color)
         else:
             self._cbar.cmap = colormap.vispy
-            self._cbar._ticks[0].text = str(clim[0])
-            self._cbar._ticks[1].text = str(clim[1])
+            self._cbar._ticks[0].text = '%.2e' % clim[0]
+            self._cbar._ticks[1].text = '%.2e' % clim[1]
         self._cbar.update()
         self._cbar_is_displayed = True
 
@@ -501,10 +501,10 @@ class Brain(object):
                                  "previously set times.")
 
             # initial time
-            if initial_time is None:
-                initial_time_index = None
-            else:
+            if initial_time is not None:
                 initial_time_index = self.index_for_time(initial_time)
+            else:
+                initial_time_index = 0
 
         # ____________________ OVERLAY ____________________
         for brain in self.brains:
