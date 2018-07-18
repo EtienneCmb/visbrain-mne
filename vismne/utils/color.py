@@ -6,6 +6,7 @@ import numpy as np
 
 from matplotlib import cm
 import matplotlib.colors as mplcol
+from vispy.color import Colormap as VispyColormap
 
 from .math import vispy_array
 
@@ -44,6 +45,8 @@ class Colormap(object):
             * (f_1, f_2) : values between f_1 and f_2 are set to translucent
             * (None, f_2) x <= f_2 are set to translucent
             * (f_1, None) f_1 <= x are set to translucent
+    smooth : bool | False
+        Smooth translucency levels.
     lut_len : int | 1024
         Number of levels for the colormap.
     interpolation : {None, 'linear', 'cubic'}
@@ -71,12 +74,13 @@ class Colormap(object):
 
     def __init__(self, cmap='viridis', clim=None, vmin=None, under=None,
                  vmax=None, over=None, translucent=None, alpha=1.,
-                 lut_len=1024, interpolation=None):
+                 smooth=False, lut_len=1024, interpolation=None):
         """Init."""
         # Keep color parameters into a dict :
         self._kw = dict(cmap=cmap, clim=clim, vmin=vmin, vmax=vmax,
                         under=under, over=over, translucent=translucent,
-                        alpha=alpha)
+                        alpha=alpha, smooth=smooth)
+        self._lut_len = lut_len
         # Color conversion :
         if isinstance(cmap, np.ndarray):
             assert (cmap.ndim == 2) and (cmap.shape[-1] in (3, 4))
@@ -96,6 +100,8 @@ class Colormap(object):
                 data = f(x, np.linspace(0, 1, lut_len))
         elif isinstance(cmap, str):
             data = array_to_color(np.linspace(0., 1., lut_len), **self._kw)
+        elif isinstance(cmap, list):
+            data = _multi_cmap(np.linspace(0., 1., lut_len), self._kw)
         # Alpha correction :
         if data.shape[-1] == 3:
             data = np.c_[data, np.full((data.shape[0],), alpha)]
@@ -117,8 +123,15 @@ class Colormap(object):
         """
         if isinstance(self._kw['cmap'], np.ndarray):
             return self._data
+        elif isinstance(self._kw['cmap'], list):
+            return _multi_cmap(data, self._kw)
         else:
             return array_to_color(data, **self._kw)
+
+    def update(self, kw):
+        """Update colormap preoperties with a dict."""
+        for k, i in kw.items():
+            self[k] = i
 
     def __len__(self):
         """Get the number of colors in the colormap."""
@@ -127,6 +140,10 @@ class Colormap(object):
     def __getitem__(self, name):
         """Get a color item."""
         return self._kw[name]
+
+    def __setitem__(self, name, value):
+        """Set color item."""
+        self._kw[name] = value
 
     @property
     def data(self):
@@ -137,6 +154,11 @@ class Colormap(object):
     def shape(self):
         """Get the shape of the data."""
         return self._data.shape
+
+    @property
+    def vispy(self):
+        """Return a vispy colormap based on data."""
+        return VispyColormap(self._data)
 
     # @property
     # def glsl(self):
@@ -169,8 +191,7 @@ class Colormap(object):
         return self._data[:, -1]
 
 
-def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
-             faces_index=False):
+def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0):
     """Turn into a RGBA compatible color format.
 
     This function can tranform a tuple of RGB, a matplotlib color or an
@@ -187,9 +208,6 @@ def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
         The length of the output array.
     alpha : float | 1
         The opacity (Last digit of the RGBA tuple).
-    faces_index : bool | False
-        Specify if the returned color have to be compatible with faces index
-        (e.g a (n_color, 3, 4) array).
 
     Return
     ------
@@ -226,10 +244,6 @@ def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
                                  alpha * np.ones((length, 1),
                                                  dtype=np.float32)), axis=1)
 
-        # Faces index :
-        if faces_index:
-            vcolor = np.tile(vcolor[:, np.newaxis, :], (1, 3, 1))
-
         return vcolor.astype(np.float32)
     else:
         raise ValueError(str(type(color)) + " is not a recognized type of "
@@ -238,7 +252,7 @@ def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
 
 def array_to_color(x, cmap='inferno', clim=None, alpha=1.0, vmin=None,
                    vmax=None, under='dimgray', over='darkred',
-                   translucent=None, faces_render=False):
+                   translucent=None, smooth=False):
     """Transform an array of data into colormap (array of RGBA).
 
     Parameters
@@ -271,8 +285,8 @@ def array_to_color(x, cmap='inferno', clim=None, alpha=1.0, vmin=None,
             * (f_1, f_2) : values between f_1 and f_2 are set to translucent
             * (None, f_2) x <= f_2 are set to translucent
             * (f_1, None) f_1 <= x are set to translucent
-    faces_render : boll | False
-        Precise if the render should be applied to faces
+    smooth : bool | False
+        Smooth translucency levels.
 
     Returns
     -------
@@ -312,26 +326,44 @@ def array_to_color(x, cmap='inferno', clim=None, alpha=1.0, vmin=None,
         x_cmap[x > vmax, :] = over
 
     # ================== Transparency ==================
-    x_cmap = _transclucent_cmap(x, x_cmap, translucent)
+    x_cmap = _transclucent_cmap(x, x_cmap, translucent, smooth)
 
     return x_cmap.astype(np.float32)
 
 
-def _transclucent_cmap(x, x_cmap, translucent, smooth=None):
+def _transclucent_cmap(x, x_cmap, translucent, smooth=False):
     """Sub function to define transparency."""
-    if translucent is not None:
-        is_num = [isinstance(k, (int, float)) for k in translucent]
-        assert len(translucent) == 2 and any(is_num)
-        if all(is_num):                # (f_1, f_2)
-            trans_x = np.logical_and(translucent[0] <= x, x <= translucent[1])
-        elif is_num == [True, False]:  # (f_1, None)
-            trans_x = translucent[0] <= x
-        elif is_num == [False, True]:  # (None, f_2)
-            trans_x = x <= translucent[1]
+    if translucent is None:
+        return x_cmap
+    # Translucent (f_1, f_2) :
+    is_num = [isinstance(k, (int, float)) for k in translucent]
+    assert len(translucent) == 2 and any(is_num)
+    if all(is_num):                # (f_1, f_2)
+        trans_x = np.logical_and(translucent[0] <= x, x <= translucent[1])
+    elif is_num == [True, False]:  # (f_1, None)
+        trans_x = x <= translucent[0]
+    elif is_num == [False, True]:  # (None, f_2)
+        trans_x = translucent[1] <= x
+    # Set alpha :
+    if smooth:
+        alphas = np.linspace(0., 1., int(trans_x.sum()))
+        x_cmap[trans_x, -1] = alphas
+    else:
         x_cmap[..., -1] = np.invert(trans_x)
-        if isinstance(smooth, int):
-            alphas = x_cmap[:, -1]
-            alphas = np.convolve(alphas, np.hanning(smooth), 'valid')
-            alphas /= max(alphas.max(), 1.)
-            x_cmap[smooth - 1::, -1] = alphas
     return x_cmap
+
+
+def _multi_cmap(data, kw):
+    """Color array using multiple colormaps."""
+    cmap, clim = kw['cmap'], kw['clim']
+    clim = [None] * 3 if clim is None else clim
+    assert len(data) % len(cmap) == 0
+    assert isinstance(cmap, list) and isinstance(clim, list)
+    # Split vector data :
+    vec = np.split(data, len(cmap))
+    _data = []
+    for v, c, cl in zip(vec, cmap, clim):
+        kw = kw.copy()
+        kw['cmap'], kw['clim'] = c, cl
+        _data += [array_to_color(v, **kw)]
+    return np.concatenate(tuple(_data))

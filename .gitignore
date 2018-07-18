@@ -105,3 +105,4 @@ venv.bak/
 
 inflated.npz
 sulcus.npy
+example_data/

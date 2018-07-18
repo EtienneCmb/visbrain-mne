@@ -22,7 +22,6 @@ LUT_LEN = 1024
 LIGHT_POSITION = [100.] * 3
 LIGHT_INTENSITY = [1.] * 3
 COEF_AMBIENT = .05
-COEF_SPECULAR = .5
 SULCUS_COLOR = [.4] * 3 + [1.]
 
 # Vertex shader : executed code for individual vertices. The transformation
@@ -95,16 +94,9 @@ void main() {
     // Get diffuse light :
     vec3 diffuseLight =  v_color.rgb * brightness * $u_light_intensity;
 
-    // ----------------- Specular light -----------------
-    vec3 surfaceToCamera = vec3(0.0, 0.0, 1.0) - v_position;
-    vec3 K = normalize(normalize(surfaceToLight) + normalize(surfaceToCamera));
-    float specular = clamp(pow(abs(dot(v_normal, K)), 40.), 0.0, 1.0);
-    specular *= $u_coef_specular;
-    vec3 specularLight = specular * vec3(1., 1., 1.) * $u_light_intensity;
-
     // ----------------- Linear color -----------------
     // Without attenuation :
-    vec3 linearColor = ambientLight + specularLight + diffuseLight;
+    vec3 linearColor = ambientLight + diffuseLight;
 
     // ----------------- Final color -----------------
     // Without gamma correction :
@@ -163,6 +155,7 @@ class BrainVisual(Visual):
         self._alpha = alpha
         self._n_overlay = 0
         self._data_lim = []
+        self._colormaps = []
 
         # Initialize the vispy.Visual class with the vertex / fragment buffer :
         Visual.__init__(self, vcode=VERT_SHADER, fcode=FRAG_SHADER)
@@ -191,7 +184,6 @@ class BrainVisual(Visual):
         # _________________ LIGHTS _________________
         self.shared_program.frag['u_light_intensity'] = LIGHT_INTENSITY
         self.shared_program.frag['u_coef_ambient'] = COEF_AMBIENT
-        self.shared_program.frag['u_coef_specular'] = COEF_SPECULAR
 
         # _________________ DATA / CAMERA / LIGHT _________________
         self.set_data(vertices, faces, normals, sulcus)
@@ -241,17 +233,14 @@ class BrainVisual(Visual):
 
         # Find ratio for the camera :
         v_max, v_min = vertices.max(0), vertices.min(0)
-        cam_center = (v_max + v_min).astype(float) / 2.
-        cam_scale_factor = (v_max - v_min).astype(float)
-        self._opt_cam_state = dict(center=cam_center,
-                                   scale_factor=cam_scale_factor)
-        logger.debug("Optimal camera state : %r" % self._opt_cam_state)
+        self._cam_center = (v_max + v_min) / 2.
+        self._lim_xyz = (v_max - v_min)
 
         # ____________________ BUFFERS ____________________
         # Vertices // faces // normals :
         self._vert_buffer.set_data(vertices, convert=True)
         self._normals_buffer.set_data(normals, convert=True)
-        self._index_buffer.set_data(self._faces)
+        self._index_buffer.set_data(self._faces, convert=True)
         # Sulcus :
         n = len(self)
         sulcus = np.zeros((n,), dtype=bool) if sulcus is None else sulcus
@@ -332,6 +321,7 @@ class BrainVisual(Visual):
         colormap = Colormap(**kwargs)
         vec = np.linspace(data_lim[0], data_lim[1], LUT_LEN)
         self._text2d_data[to_overlay, ...] = colormap.to_rgba(vec)
+        self._colormaps.append(colormap)
         # Send data to the mask :
         if isinstance(mask_data, np.ndarray) and len(mask_data) == len(self):
             self._bgd_data[mask_data] = .5
@@ -370,12 +360,36 @@ class BrainVisual(Visual):
         """
         if self._n_overlay >= 1:
             overlay = self._n_overlay - 1 if to_overlay is None else to_overlay
-            # Define the colormap data :
+            # Get limits and colormap of the overlay :
             data_lim = self._data_lim[overlay]
+            colormap = self._colormaps[overlay]
+            colormap.update(kwargs)
+            # Define the colormap data :
             col = np.linspace(data_lim[0], data_lim[1], LUT_LEN)
-            self._text2d_data[overlay, ...] = Colormap(**kwargs).to_rgba(col)
+            self._text2d_data[overlay, ...] = colormap.to_rgba(col)
             self._text2d.set_data(self._text2d_data)
             self.update()
+
+    def get_colormap(self, overlay=0):
+        """Get the colormap and limits of an overlay."""
+        colormap = self._colormaps[overlay]
+        return colormap
+
+    def add_data(self, array, smooth_mat, **kw):
+        """Add data to the mesh."""
+        # Calculate initial data to plot
+        if array.ndim == 1:
+            array_plot = array
+        elif array.ndim == 2:
+            array_plot = array[:, 0]
+        elif array.ndim == 3:
+            assert array.shape[1] == 3  # should always be true
+        else:
+            raise ValueError("data has to be 1D, 2D, or 3D")
+        if smooth_mat is not None:
+            array_plot = smooth_mat * array_plot
+
+        self.add_overlay(array_plot, **kw)
 
     def set_camera(self, camera=None):
         """Set a camera to the mesh.
@@ -392,6 +406,37 @@ class BrainVisual(Visual):
             self._camera = camera
             self._camera_transform = self._camera.transform
             self.update()
+
+    def show_view(self, view, csize, cam_state=None, margin=1.08, distance=4.):
+        """Show a view of the brain.
+
+        Parameters
+        ----------
+        view : dict
+            Dict containing azimuth, elevation and roll.
+        csize : tuple
+            Canvas size.
+        cam_state : dict | None
+            Camera state dict.
+        margin : float | 1.08
+            Margin coefficient.
+        distance : float | 4.
+            Light distance coefficient.
+        """
+        if not isinstance(cam_state, dict):
+            cam_state = dict()
+        cam_state['azimuth'], cam_state['elevation'] = view['v']
+        cam_state['roll'] = view['r']
+        # Scale factor :
+        axis_scale = self._lim_xyz[view['xyz']]
+        x_ratio = axis_scale[0] / csize[0]
+        y_ratio = axis_scale[1] / csize[1]
+        # Get the optimal scaling factor :
+        scale_factor = axis_scale[np.argmax([x_ratio, y_ratio])] * margin
+        cam_state['scale_factor'] = scale_factor
+        self._camera.set_state(**cam_state)
+        self._camera.distance = cam_state['scale_factor'] * distance
+        self._camera.set_default_state()
 
     def clean(self):
         """Clean the mesh.
