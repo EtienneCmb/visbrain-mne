@@ -330,7 +330,7 @@ class Brain(object):
             rect = [-3 * w / 2, -h, w * 3, 5 * h]
             camera = scene.cameras.PanZoomCamera(rect=rect)
             # Create the subplot :
-            r = 1 if self._hemi in ['lh', 'rh'] else 2
+            r = 1 if self._hemi in ['lh', 'rh', 'both'] else 2
             parent = self._grid.add_view(row=self._n_rows, col=0, col_span=r,
                                          camera=camera)
             parent.height_max = height_max
